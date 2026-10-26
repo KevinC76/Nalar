@@ -12,9 +12,15 @@ in this directory and are excluded from Git.
 - Next.js production build and TypeScript checks pass on Node.js 22.
 - Four unit tests cover 15 modules, 75 questions, scoring, review scheduling,
   chunking, graph validation, context bounds and citation IDs.
-- Eight integration groups use a real isolated ChironDB process and the published
+- Nine integration groups use a real isolated ChironDB process and the published
   SDK. AI responses in this suite come from an explicit deterministic fixture;
   they do not establish real model quality.
+- Console correction on 26 October 2026 reproduced the SQL-only failure, then
+  passed all nine integration groups (ten runner cases), four unit tests and
+  TypeScript. Live read-only console checks returned five chunks, six vector
+  matches and two prerequisite concepts from the existing 1,536-dimensional
+  corpus. SQL, pending-query reset and error recovery passed without real AI
+  calls or changes to the main database.
 - The real-provider development campaign on 25 October 2026 used
   `gpt-4.1-2025-04-14` and `text-embedding-3-small` with 1,536 dimensions.
   Recall@6 was 1.00 on 45 curated queries. Nine tutor responses and four additional

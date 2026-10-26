@@ -76,7 +76,7 @@ npm run tutor:evaluate
 ```
 
 - Unit: kelengkapan kurikulum, penghapusan kunci jawaban publik, penilaian, jadwal berbasis waktu, chunking, siklus graph, batas konteks dan kutipan.
-- Integrasi: server ChironDB nyata + SDK npm beta.3, pada port 18401–18403, aplikasi 3100, dan penyedia fixture 18409. Proses tersebut dihentikan setelah tes. Fixture deterministik **hanya dipasang pada proses uji**, bukan pada aplikasi biasa; hasilnya bukan bukti kualitas model AI atau embedding.
+- Integrasi: sembilan kelompok uji memakai server ChironDB nyata + SDK npm beta.3, pada port 18401–18403, aplikasi 3100, dan penyedia fixture 18409. Termasuk kueri ChironQL/SQL melalui konsol, mode interaktif/argumen, serta pemulihan setelah kesalahan. Proses tersebut dihentikan setelah tes. Fixture deterministik **hanya dipasang pada proses uji**, bukan pada aplikasi biasa; hasilnya bukan bukti kualitas model AI atau embedding.
 - `rag:evaluate`: 45 pertanyaan berlabel, pencarian pada seluruh chunk satu jenjang, target Recall@6 ≥0,90. Hasil ditulis ke `reports/retrieval-results.json`. Ini evaluasi domain demo, bukan ann-benchmarks/BEIR atau sertifikasi engine.
 - `tutor:evaluate`: sembilan pertanyaan/follow-up/adversarial melalui endpoint aplikasi nyata untuk tiga jenjang. Membuat akun sintetis evaluasi dan mencabut sesi setelahnya. Menyimpan delta streaming, versi, relasi dan sumber tanpa credential di `reports/tutor-results.json`; exit 1 bila respons tidak selesai. Setiap eksekusi menghasilkan rubrik baru yang perlu ditinjau langsung, terpisah dari pemeriksaan ID kutipan.
 - Laporan berstatus `pending` dan exit code 1 ketika konfigurasi nyata belum tersedia. Jangan menyebutnya lulus. Rubrik manual tetap belum selesai sampai dinilai.
@@ -87,21 +87,44 @@ Hasil aktual 25 Oktober 2026: Recall@6 **1,00 (45/45)**; sembilan respons tutor 
 
 ## Query database Nalar
 
-Untuk membuka konsol SQL dengan SDK dan kredensial dari `.env.local`:
+Untuk membuka konsol ChironQL dan SQL dengan SDK dan kredensial dari `.env.local`:
 
 ```sh
 npm run db:console
 ```
 
-Konsol menampilkan status server, endpoint dan koleksi aktif. Gunakan `\tables`, `\collections`, `\status`, `\help`, atau `\q`. SQL boleh beberapa baris; akhiri dengan titik koma. Konsol tersambung ke database Nalar yang sama dengan aplikasi.
+Konsol menampilkan status server, endpoint dan koleksi aktif. Gunakan `\tables`, `\collections`, `\status`, `\help`, atau `\q`. Kueri boleh beberapa baris; akhiri dengan titik koma (`;`), bukan titik (`.`). `\r` membatalkan kueri yang belum selesai. Konsol tersambung ke database Nalar yang sama dengan aplikasi. Setelah memperbarui skrip konsol, keluar dari sesi lama dengan `\q` lalu jalankan kembali perintah di atas.
+
+Perintah ChironQL diteruskan ke `client.query()`, termasuk vector dan graph. SQL relasional memakai awalan `SQL`; `SELECT` dan `WITH` biasa otomatis diberi awalan itu agar contoh lama tetap berjalan.
 
 ```sql
 SELECT id, full_name, grade_level FROM users LIMIT 10;
-SELECT collection_name, embedding_model, dimensions, active FROM knowledge_versions;
+SQL SELECT collection_name, embedding_model, dimensions, active FROM knowledge_versions;
 SELECT role, status, content FROM chat_messages LIMIT 5;
+SHOW COLLECTIONS;
 ```
 
-Satu query juga dapat dijalankan langsung: `npm run db:console -- "SELECT COUNT(*) AS total FROM users;"`. Data akun/progres/chat memakai SQL relasional; `\collections` menampilkan koleksi vector/graph terpisah. Contoh ini tidak mencetak hash password atau token sesi.
+Contoh berikut memakai koleksi demo yang telah diverifikasi. Ganti namanya sesuai `collection_name` dengan `active=true` pada database Anda:
+
+```sql
+SCROLL nalar_38eb5a6647091124056f
+WHERE kind = 'chunk'
+LIMIT 5;
+
+SEARCH nalar_38eb5a6647091124056f
+NEAR @'genetika-bagian-3-0'
+WHERE kind = 'chunk' AND grade = 'SMA'
+LIMIT 6 WITH PAYLOAD;
+
+TRAVERSE nalar_38eb5a6647091124056f
+FROM 'genetika-konsep-3'
+VIA REQUIRES DEPTH 1
+WITH PAYLOAD RETURN NODES LIMIT 10;
+```
+
+`NEAR @'...'` memakai embedding point yang sudah tersimpan; tidak memanggil layanan embedding. Hasil konsol menampilkan payload bersarang, statistik, peringatan, dan cursor `next` bila tersedia. `GET`/`SCROLL` pada snapshot ini menampilkan ID dan payload; angka embedding mentah dapat dibaca melalui SDK `getPoints()`.
+
+Satu kueri juga dapat dijalankan langsung: `npm run db:console -- "SHOW COLLECTIONS;"` atau `npm run db:console -- "SELECT COUNT(*) AS total FROM users;"`. Contoh ini tidak mencetak hash password atau token sesi.
 
 ## Kontrak API
 

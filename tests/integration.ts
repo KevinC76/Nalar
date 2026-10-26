@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { mkdir, readFile, writeFile, readdir } from "node:fs/promises";
 import { randomBytes, randomUUID, createHash } from "node:crypto";
 import { resolve } from "node:path";
@@ -366,6 +366,54 @@ test(
           await assert.rejects(activeKnowledge);
           process.env.EMBEDDING_MODEL = "fixture-bow-v1";
           assert.equal((await activeKnowledge()).id, first.version);
+        },
+      );
+      await check(
+        "console runs multiline ChironQL, SQL, one-shot queries and error recovery",
+        async () => {
+          const c = (await activeKnowledge()).collection_name;
+          function consoleQuery(input: string, args: string[] = [], status = 0) {
+            const result = spawnSync(
+              process.execPath,
+              ["--import=tsx", "scripts/console.ts", ...args],
+              { env: process.env, input, encoding: "utf8", timeout: 15000 },
+            );
+            assert.equal(result.error, undefined);
+            assert.equal(result.status, status, result.stderr);
+            assert.ok(!result.stdout.includes(key));
+            assert.ok(!result.stderr.includes(key));
+            return result.stdout;
+          }
+          const output = consoleQuery(`\\status
+\\tables
+\\collections
+-- Lihat materi dalam koleksi vector
+SCROLL ${c}
+WHERE kind = 'chunk'
+LIMIT 5;
+SEARCH ${c}
+NEAR @'genetika-bagian-3-0'
+WHERE kind = 'chunk' AND grade = 'SMA'
+LIMIT 6 WITH PAYLOAD;
+TRAVERSE ${c}
+FROM 'genetika-konsep-3'
+VIA REQUIRES DEPTH 1
+WITH PAYLOAD RETURN NODES LIMIT 10;
+SQL SELECT embedding_model FROM knowledge_versions WHERE active=true;
+-- SELECT lama tetap didukung
+SELECT COUNT(*) AS total FROM users;
+\\q
+`);
+          assert.match(output, /peluang-konsep-2/);
+          assert.match(output, /Persilangan monohibrid/);
+          assert.match(output, /fixture-bow-v1/);
+          assert.match(consoleQuery("", [`COUNT ${c};`]), /105/);
+          assert.match(
+            consoleQuery("", ["SELECT COUNT(*) AS total FROM users;"]),
+            /total/,
+          );
+          assert.match(consoleQuery(`INVALID;\nCOUNT ${c};\n\\q\n`, [], 1), /105/);
+          consoleQuery("SELECT id FROM users\n", [], 1);
         },
       );
       await check(

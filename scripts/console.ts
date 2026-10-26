@@ -1,6 +1,17 @@
 import { createInterface } from "node:readline";
 import { db, sql, schema } from "../lib/db";
 
+async function query(statement: string) {
+  const first = statement.replace(
+    /^(?:\s+|--[^\n]*(?:\n|$)|\/\*[\s\S]*?\*\/)*/,
+    "",
+  );
+  const result = await db().query(
+    /^(SELECT|WITH)\b/i.test(first) ? `SQL ${statement}` : statement,
+  );
+  console.dir(result, { depth: null, maxArrayLength: null });
+}
+
 async function status() {
   const endpoint = process.env.CHIRONDB_URL || "http://127.0.0.1:17401";
   const response = await fetch(`${endpoint}/health`, {
@@ -19,23 +30,28 @@ async function status() {
 }
 
 function help() {
-  console.log(`Akhiri SQL dengan ; (boleh beberapa baris).
+  console.log(`ChironQL dan SQL dalam satu konsol. Akhiri query dengan ; (boleh beberapa baris).
+SELECT/WITH biasa tetap didukung; SQL lainnya memakai awalan SQL.
 \\status       Status server dan indeks aktif
 \\tables       Daftar tabel Nalar
 \\collections  Daftar koleksi vector
+\\r            Batalkan query yang belum selesai
 \\q            Keluar
 
 Contoh:
 SELECT id, full_name, grade_level FROM users LIMIT 10;
-SELECT collection_name, embedding_model, dimensions, active FROM knowledge_versions;
-SELECT role, status, content FROM chat_messages LIMIT 5;
+SQL SELECT collection_name, embedding_model, dimensions, active FROM knowledge_versions;
+SHOW COLLECTIONS;
+SCROLL <nama_koleksi> WHERE kind = 'chunk' LIMIT 5;
+SEARCH <nama_koleksi> NEAR @'genetika-bagian-3-0' LIMIT 6 WITH PAYLOAD;
+TRAVERSE <nama_koleksi> FROM 'genetika-konsep-3' VIA REQUIRES DEPTH 1 RETURN NODES LIMIT 10;
 `);
 }
 
 try {
   await status();
   if (process.argv.length > 2) {
-    console.table(await sql(process.argv.slice(2).join(" ")));
+    await query(process.argv.slice(2).join(" "));
   } else {
     help();
     const terminal = createInterface({
@@ -47,9 +63,13 @@ try {
     terminal.prompt();
     for await (const line of terminal) {
       const input = line.trim();
-      if (input === "\\q") break;
+      if (input === "\\q") {
+        pending = "";
+        break;
+      }
       try {
-        if (!pending && input === "\\status") await status();
+        if (input === "\\r") pending = "";
+        else if (!pending && input === "\\status") await status();
         else if (!pending && input === "\\tables")
           console.table(schema.map((s) => ({ table: s.split(" ")[5] })));
         else if (!pending && input === "\\collections")
@@ -60,20 +80,26 @@ try {
             })),
           );
         else if (!pending && input === "\\help") help();
-        else if (input) {
+        else if (input && (pending || !input.startsWith("--"))) {
           pending += `${line}\n`;
           if (input.endsWith(";")) {
-            const query = pending;
+            const statement = pending;
             pending = "";
-            console.table(await sql(query));
+            await query(statement);
           }
         }
       } catch {
-        console.error("Query gagal. Periksa sintaks SQL dan nama tabel/kolom.");
+        console.error(
+          "Query gagal. Periksa sintaks ChironQL; untuk SQL gunakan SQL <pernyataan>.",
+        );
         process.exitCode = 1;
       }
       terminal.setPrompt(pending ? "   ... " : "nalar> ");
       terminal.prompt();
+    }
+    if (pending) {
+      console.error("Query belum dijalankan. Akhiri dengan titik koma (;).");
+      process.exitCode = 1;
     }
     terminal.close();
   }
