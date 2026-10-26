@@ -1,0 +1,44 @@
+{
+  "name": "nalar-learning",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1",
+    "build": "next build",
+    "start": "next start --hostname 127.0.0.1",
+    "check": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "db:migrate": "tsx --env-file=.env.local scripts/migrate.ts",
+    "knowledge:index": "tsx --env-file=.env.local scripts/index-knowledge.ts",
+    "rag:evaluate": "tsx --env-file=.env.local scripts/evaluate-rag.ts",
+    "db:start": "node scripts/database.mjs",
+    "db:console": "tsx --env-file=.env.local scripts/console.ts",
+    "test:integration": "tsx --env-file=.env.local --test tests/integration.ts",
+    "db:prepare": "node scripts/prepare-database.mjs",
+    "tutor:evaluate": "tsx --env-file=.env.local scripts/evaluate-tutor.ts"
+  },
+  "dependencies": {
+    "@gaussian-id/chirondb": "0.1.0-beta.3",
+    "next": "16.4.3",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "argon2": "^0.44.0",
+    "iron-session": "^8.0.4",
+    "openai": "^6.0.0",
+    "lucide-react": "^0.468.0",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "tsx": "^4.20.0",
+    "tailwindcss": "^4.1.0",
+    "@tailwindcss/postcss": "^4.1.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

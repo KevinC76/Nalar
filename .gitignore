@@ -1,0 +1,13 @@
+node_modules/
+.next/
+.runtime/
+.env*
+!.env.example
+*.tsbuildinfo
+.DS_Store
+*.log
+coverage/
+AGENTS.md
+CLAUDE.md
+reports/*
+!reports/README.md
